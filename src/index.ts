@@ -12,7 +12,7 @@ import { authTelegram, getStats, saveSolve, saveTestResult, getSolveStats } from
 import { loadProblems, getCategories, getProblemsByTopic, getRandomProblems, getProblem } from './problems.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const token = process.env.BOT_TOKEN
+const token: string = process.env.BOT_TOKEN ?? ''
 if (!token) { console.error('BOT_TOKEN missing'); process.exit(1) }
 
 // ─── Express (serves Mini App + JSON API) ────────────────────────
@@ -94,13 +94,22 @@ async function main() {
   await initDB()
   console.log('Database initialized')
 
-  // Seed some problems if empty
   if (loadProblems().length === 0) {
     console.log('No problems found. Create data/problems.json with your tasks.')
   }
 
-  await bot.launch()
-  console.log('🤖 Bot is running')
+  // Use webhook on Railway, long polling locally
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+    const domain = process.env.RAILWAY_PUBLIC_DOMAIN
+    const whPath = `/telegraf/${token.substring(0, 8)}`
+    app.use(whPath, bot.webhookCallback(whPath))
+    await bot.telegram.setWebhook(`https://${domain}${whPath}`, { drop_pending_updates: true })
+    console.log(`🤖 Webhook set: https://${domain}${whPath}`)
+  } else {
+    await bot.launch()
+    console.log('🤖 Bot polling started')
+  }
+
   console.log(`📱 Mini App: ${WEBAPP_URL}`)
 }
 
