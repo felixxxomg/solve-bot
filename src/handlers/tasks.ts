@@ -1,9 +1,9 @@
-import { Context, Input } from 'telegraf'
+import { Context } from 'telegraf'
 import { getProblems, getCategories, getSubjects, saveSolve } from '../api.js'
 import { t } from '../i18n.js'
 import { problemKeyboard } from '../keyboards.js'
 import { Lang, Session } from '../types.js'
-import { extractLatex, stripLatex, formulaUrl } from '../utils/latex.js'
+import { extractLatex, stripLatex, questionToLatex, renderLatexImage } from '../utils/latex.js'
 
 const sessions = new Map<number, Session>()
 
@@ -73,42 +73,67 @@ export async function showProblem(ctx: Context, userId: number, lang: Lang) {
   const labels = ['A', 'B', 'C', 'D']
   const optionsText = problem.options.map((opt: string, i: number) => `${labels[i]}. ${opt}`).join('\n')
 
-  const displayText = latexBlocks.length > 0 ? `_${cleanQuestion}_` : problem.question
+  const header = `#${problem.bank_id || problem.id}  •  ${problem.difficulty.toUpperCase()}  •  ${session.currentIndex + 1}/${session.problems.length}`
 
-  const text = [
-    `*#${problem.bank_id || problem.id}*  •  ${problem.difficulty.toUpperCase()}  •  ${session.currentIndex + 1}/${session.problems.length}`,
-    '',
+  const displayText = latexBlocks.length > 0 ? cleanQuestion : problem.question
+
+  const captionText = [
     displayText,
     '',
     optionsText,
   ].join('\n')
 
+  if (latexBlocks.length > 0) {
+    const latexFull = questionToLatex(problem.question)
+    const imgUrl = await renderLatexImage(latexFull)
+
+    if (imgUrl) {
+      const body = [`*${header}*`, '', captionText].join('\n')
+      await ctx.editMessageText(body, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: [] },
+      })
+      try {
+        await ctx.replyWithPhoto(imgUrl, {
+          caption: optionsText,
+          parse_mode: 'Markdown',
+          ...problemKeyboard(
+            problem.id, problem.options,
+            session.currentIndex, session.problems.length,
+            hasPrev, hasNext, answered, lang
+          ),
+        })
+      } catch {
+        await sendTextProblem(ctx, header, displayText, optionsText, problem, session, answered, hasPrev, hasNext, lang)
+      }
+    } else {
+      await sendTextProblem(ctx, header, displayText, optionsText, problem, session, answered, hasPrev, hasNext, lang)
+    }
+  } else {
+    await sendTextProblem(ctx, header, displayText, optionsText, problem, session, answered, hasPrev, hasNext, lang)
+  }
+}
+
+async function sendTextProblem(
+  ctx: Context, header: string, questionText: string, optionsText: string,
+  problem: any, session: Session, answered: boolean,
+  hasPrev: boolean, hasNext: boolean, lang: Lang
+) {
+  const text = [
+    `*${header}*`,
+    '',
+    questionText,
+    '',
+    optionsText,
+  ].join('\n')
   await ctx.editMessageText(text, {
     parse_mode: 'Markdown',
     ...problemKeyboard(
-      problem.id,
-      problem.options,
-      session.currentIndex,
-      session.problems.length,
-      hasPrev,
-      hasNext,
-      answered,
-      lang
+      problem.id, problem.options,
+      session.currentIndex, session.problems.length,
+      hasPrev, hasNext, answered, lang
     ),
   })
-
-  if (latexBlocks.length > 0) {
-    const urls = latexBlocks.map(f => formulaUrl(f))
-    for (const url of urls) {
-      try {
-        await ctx.replyWithPhoto(Input.fromURL(url), {
-          reply_markup: { inline_keyboard: [] },
-        })
-      } catch {
-        // ignore render errors
-      }
-    }
-  }
 }
 
 export async function handleAnswer(ctx: Context, userId: number, problemId: number, optionIdx: number, lang: Lang) {
@@ -144,7 +169,7 @@ export async function handleAnswer(ctx: Context, userId: number, problemId: numb
   const labels = ['A', 'B', 'C', 'D']
   const optionsText = problem.options.map((opt: string, i: number) => `${labels[i]}. ${opt}`).join('\n')
 
-  const displayQuestion = latexBlocks.length > 0 ? `_${cleanQuestion}_` : problem.question
+  const displayQuestion = latexBlocks.length > 0 ? cleanQuestion : problem.question
 
   const text = [
     `*#${problem.bank_id || problem.id}*  •  ${problem.difficulty.toUpperCase()}`,
@@ -172,15 +197,6 @@ export async function handleAnswer(ctx: Context, userId: number, problemId: numb
       lang
     ),
   })
-
-  if (latexBlocks.length > 0) {
-    const urls = latexBlocks.map(f => formulaUrl(f))
-    for (const url of urls) {
-      try {
-        await ctx.replyWithPhoto(Input.fromURL(url))
-      } catch {}
-    }
-  }
 }
 
 export async function showSolution(ctx: Context, problemId: number, lang: Lang) {
