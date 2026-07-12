@@ -15,12 +15,20 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const token: string = process.env.BOT_TOKEN ?? ''
 if (!token) { console.error('BOT_TOKEN missing'); process.exit(1) }
 
-// ─── Detect platform ──────────────────────────────────────────────
+// ─── Platform detection ───────────────────────────────────────────
 const isRailway = !!process.env.RAILWAY_PUBLIC_DOMAIN || !!process.env.RAILWAY_URL
-const isRender = !!process.env.RENDER || !!process.env.RENDER_EXTERNAL_URL
+const isRender = !!process.env.RENDER_EXTERNAL_URL
 const PUBLIC_URL = (process.env.WEBAPP_URL
-  || (isRender ? process.env.RENDER_EXTERNAL_URL : '')
+  || process.env.RENDER_EXTERNAL_URL
   || (isRailway ? `https://${(process.env.RAILWAY_PUBLIC_DOMAIN || process.env.RAILWAY_URL || '').replace(/^https?:\/\//, '')}` : '')).replace(/\/+$/, '')
+
+console.log('=== PLATFORM ===')
+console.log('RENDER:', process.env.RENDER)
+console.log('RENDER_EXTERNAL_URL:', process.env.RENDER_EXTERNAL_URL)
+console.log('RAILWAY_PUBLIC_DOMAIN:', process.env.RAILWAY_PUBLIC_DOMAIN)
+console.log('WEBAPP_URL (manual):', process.env.WEBAPP_URL)
+console.log('PUBLIC_URL (resolved):', `"${PUBLIC_URL}"`)
+console.log('================')
 
 // ─── Express ──────────────────────────────────────────────────────
 const app = express()
@@ -29,6 +37,14 @@ app.use(express.json())
 app.use(express.static(path.join(__dirname, '..', 'webapp')))
 
 app.get('/health', (_req, res) => res.json({ ok: true }))
+app.get('/debug', (_req, res) => res.json({
+  RENDER: process.env.RENDER || null,
+  RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL || null,
+  WEBAPP_URL: process.env.WEBAPP_URL || null,
+  RAILWAY_PUBLIC_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN || null,
+  isRender, isRailway, PUBLIC_URL: PUBLIC_URL || '(empty)',
+  PORT: process.env.PORT || null,
+}))
 
 app.get('/api/categories', (_req, res) => res.json(getCategories()))
 app.get('/api/problems', (req, res) => {
