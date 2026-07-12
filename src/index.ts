@@ -83,7 +83,8 @@ const server = app.listen(PORT, () => {
 })
 
 // ─── Telegram Bot ─────────────────────────────────────────────────
-const WEBAPP_URL = process.env.WEBAPP_URL || `https://${process.env.RAILWAY_PUBLIC_DOMAIN || `localhost:${PORT}`}`
+const RAILWAY_DOMAIN = process.env.RAILWAY_PUBLIC_DOMAIN || process.env.RAILWAY_URL || ''
+const WEBAPP_URL = process.env.WEBAPP_URL || (RAILWAY_DOMAIN ? `https://${RAILWAY_DOMAIN.replace(/^https?:\/\//, '')}` : '')
 setCallbackWebappUrl(WEBAPP_URL)
 
 const bot = new Telegraf(token, { handlerTimeout: 30_000 })
@@ -99,12 +100,11 @@ async function main() {
   }
 
   // Use webhook on Railway, long polling locally
-  if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-    const domain = process.env.RAILWAY_PUBLIC_DOMAIN
+  if (RAILWAY_DOMAIN) {
     const whPath = `/telegraf/${token.substring(0, 8)}`
     app.use(whPath, bot.webhookCallback(whPath))
-    await bot.telegram.setWebhook(`https://${domain}${whPath}`, { drop_pending_updates: true })
-    console.log(`🤖 Webhook set: https://${domain}${whPath}`)
+    await bot.telegram.setWebhook(`https://${RAILWAY_DOMAIN.replace(/^https?:\/\//, '')}${whPath}`, { drop_pending_updates: true })
+    console.log(`🤖 Webhook set: https://${RAILWAY_DOMAIN.replace(/^https?:\/\//, '')}${whPath}`)
   } else {
     await bot.launch()
     console.log('🤖 Bot polling started')
