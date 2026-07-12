@@ -12,12 +12,9 @@ import { authTelegram, getStats, saveSolve, saveTestResult, getSolveStats } from
 import { loadProblems, getCategories, getProblemsByTopic, getRandomProblems, getProblem } from './problems.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const token: string = process.env.BOT_TOKEN ?? ''
-if (!token) { console.error('BOT_TOKEN missing'); process.exit(1) }
 
 // ─── Platform detection ───────────────────────────────────────────
 const isRailway = !!process.env.RAILWAY_PUBLIC_DOMAIN || !!process.env.RAILWAY_URL
-const isRender = !!process.env.RENDER_EXTERNAL_URL
 const PUBLIC_URL = (process.env.WEBAPP_URL
   || process.env.RENDER_EXTERNAL_URL
   || (isRailway ? `https://${(process.env.RAILWAY_PUBLIC_DOMAIN || process.env.RAILWAY_URL || '').replace(/^https?:\/\//, '')}` : '')).replace(/\/+$/, '')
@@ -28,6 +25,8 @@ console.log('RENDER_EXTERNAL_URL:', process.env.RENDER_EXTERNAL_URL)
 console.log('RAILWAY_PUBLIC_DOMAIN:', process.env.RAILWAY_PUBLIC_DOMAIN)
 console.log('WEBAPP_URL (manual):', process.env.WEBAPP_URL)
 console.log('PUBLIC_URL (resolved):', `"${PUBLIC_URL}"`)
+console.log('PORT:', process.env.PORT)
+console.log('BOT_TOKEN set:', !!process.env.BOT_TOKEN)
 console.log('================')
 
 // ─── Express ──────────────────────────────────────────────────────
@@ -42,7 +41,8 @@ app.get('/debug', (_req, res) => res.json({
   RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL || null,
   WEBAPP_URL: process.env.WEBAPP_URL || null,
   RAILWAY_PUBLIC_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN || null,
-  isRender, isRailway, PUBLIC_URL: PUBLIC_URL || '(empty)',
+  PUBLIC_URL: PUBLIC_URL || '(empty)',
+  BOT_TOKEN_SET: !!process.env.BOT_TOKEN,
   PORT: process.env.PORT || null,
 }))
 
@@ -98,17 +98,24 @@ const server = app.listen(PORT, () => console.log(`Server running on port ${PORT
 
 // ─── Bot ──────────────────────────────────────────────────────────
 setCallbackWebappUrl(PUBLIC_URL)
-const bot = new Telegraf(token, { handlerTimeout: 30_000 })
-bot.start(startHandler)
-bot.on('callback_query', callbackHandler)
+const token = process.env.BOT_TOKEN || ''
 
-async function main() {
+async function startBot() {
+  if (!token) {
+    console.warn('⚠️ BOT_TOKEN not set — bot disabled, API/static server still running')
+    return
+  }
+
   await initDB()
   console.log('Database initialized')
 
   if (loadProblems().length === 0) {
-    console.log('No problems found. Create data/problems.json with your tasks.')
+    console.log('No problems found in data/problems.json')
   }
+
+  const bot = new Telegraf(token, { handlerTimeout: 30_000 })
+  bot.start(startHandler)
+  bot.on('callback_query', callbackHandler)
 
   if (PUBLIC_URL) {
     const whPath = `/telegraf/${token.substring(0, 8)}`
@@ -121,12 +128,12 @@ async function main() {
   }
 
   console.log(`📱 Mini App: ${PUBLIC_URL || '(not set)'}`)
+
+  process.once('SIGINT', () => { bot.stop('SIGINT') })
+  process.once('SIGTERM', () => { bot.stop('SIGTERM') })
 }
 
-main().catch(err => {
-  console.error('Failed:', err)
-  process.exit(1)
+startBot().catch(err => {
+  console.error('⚠️ Bot failed to start:', err)
+  console.log('Server still running — Express API available at /debug')
 })
-
-process.once('SIGINT', () => { bot.stop('SIGINT'); server.close() })
-process.once('SIGTERM', () => { bot.stop('SIGTERM'); server.close() })
