@@ -52,7 +52,9 @@ async function main() {
 }
 
 main().catch(err => {
-  console.error('Failed to start bot:', err)
+  console.error('Failed to start bot:', err?.message || err)
+  console.error('Stack:', err?.stack || '')
+  if (err?.cause) console.error('Cause:', err.cause)
   process.exit(1)
 })
 
