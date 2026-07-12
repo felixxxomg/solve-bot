@@ -1,9 +1,10 @@
-import { Context } from 'telegraf'
+import { Context, Input } from 'telegraf'
 import { getRandomProblems, saveSolve } from '../api.js'
 import { t } from '../i18n.js'
 import { mockTestKeyboard } from '../keyboards.js'
 import { Lang, Session } from '../types.js'
 import { setSession, getSession, clearSession } from './tasks.js'
+import { extractLatex, stripLatex, formulaUrl } from '../utils/latex.js'
 
 const MOCK_COUNT = 10
 
@@ -54,13 +55,18 @@ async function showMockProblem(ctx: Context, userId: number, lang: Lang) {
     return
   }
 
+  const latexBlocks = extractLatex(problem.question)
+  const cleanQuestion = stripLatex(problem.question)
+
   const labels = ['A', 'B', 'C', 'D']
   const optionsText = problem.options.map((opt: string, i: number) => `${labels[i]}. ${opt}`).join('\n')
+
+  const displayText = latexBlocks.length > 0 ? `_${cleanQuestion}_` : problem.question
 
   const text = [
     `*${t(lang, 'mockTestTitle')}*  •  ${session.currentIndex + 1}/${session.problems.length}`,
     '',
-    problem.question,
+    displayText,
     '',
     optionsText,
   ].join('\n')
@@ -69,6 +75,13 @@ async function showMockProblem(ctx: Context, userId: number, lang: Lang) {
     parse_mode: 'Markdown',
     ...mockTestKeyboard(problem.id, problem.options, lang),
   })
+
+  if (latexBlocks.length > 0) {
+    const urls = latexBlocks.map(f => formulaUrl(f))
+    for (const url of urls) {
+      try { await ctx.replyWithPhoto(Input.fromURL(url)) } catch {}
+    }
+  }
 }
 
 async function showNextMock(ctx: Context, userId: number, lang: Lang) {
@@ -107,6 +120,10 @@ export async function handleMockAnswer(ctx: Context, userId: number, problemId: 
   const labels = ['A', 'B', 'C', 'D']
   const optionsText = problem.options.map((opt: string, i: number) => `${labels[i]}. ${opt}`).join('\n')
 
+  const latexBlocks = extractLatex(problem.question)
+  const cleanQuestion = stripLatex(problem.question)
+  const displayQuestion = latexBlocks.length > 0 ? `_${cleanQuestion}_` : problem.question
+
   let feedback: string
   if (isCorrect) {
     feedback = `✅ ${t(lang, 'correctAnswer')}`
@@ -115,7 +132,7 @@ export async function handleMockAnswer(ctx: Context, userId: number, problemId: 
   }
 
   await ctx.editMessageText(
-    `*#${problem.bank_id || problem.id}*\n\n${problem.question}\n\n${optionsText}\n\n${feedback}`,
+    `*#${problem.bank_id || problem.id}*\n\n${displayQuestion}\n\n${optionsText}\n\n${feedback}`,
     { parse_mode: 'Markdown' }
   )
 

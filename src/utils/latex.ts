@@ -1,27 +1,14 @@
-import axios from 'axios'
+const CODECOGS_URL = 'https://latex.codecogs.com/png.latex'
 
-export async function renderLatex(formula: string): Promise<string | null> {
-  try {
-    const res = await axios.get('https://quicklatex.com/latex3.f', {
-      params: {
-        formula: `\\Large ${formula}`,
-        fg: '000000',
-        bg: 'FFFFFF',
-        fs: 18,
-        output: 'png',
-      },
-      timeout: 8000,
-    })
-
-    const match = res.data.match(/https:\/\/quicklatex\.com\/[^\s]+\.png/)
-    if (match) return match[0]
-    return null
-  } catch {
-    return null
-  }
+export function formulaUrl(formula: string): string {
+  const encoded = formula
+    .replace(/\\/g, '\\\\')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return `${CODECOGS_URL}?\\dpi{200}\\bg{white} ${encoded}`
 }
 
-export function extractLatexBlocks(text: string): string[] {
+export function extractLatex(text: string): string[] {
   const blocks: string[] = []
   const regex = /\$\$([^$]+)\$\$|\$([^$]+)\$/g
   let match
@@ -32,5 +19,8 @@ export function extractLatexBlocks(text: string): string[] {
 }
 
 export function stripLatex(text: string): string {
-  return text.replace(/\$\$[^$]+\$\$|\$[^$]+\$/g, '[formula]')
+  return text.replace(/\$\$[^$]+\$\$/g, '')
+    .replace(/\$[^$]+\$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }

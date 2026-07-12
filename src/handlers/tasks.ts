@@ -1,8 +1,9 @@
-import { Context } from 'telegraf'
+import { Context, Input } from 'telegraf'
 import { getProblems, getCategories, getSubjects, saveSolve } from '../api.js'
 import { t } from '../i18n.js'
 import { problemKeyboard } from '../keyboards.js'
 import { Lang, Session } from '../types.js'
+import { extractLatex, stripLatex, formulaUrl } from '../utils/latex.js'
 
 const sessions = new Map<number, Session>()
 
@@ -66,13 +67,18 @@ export async function showProblem(ctx: Context, userId: number, lang: Lang) {
   const hasPrev = session.currentIndex > 0
   const hasNext = session.currentIndex < session.problems.length - 1
 
+  const latexBlocks = extractLatex(problem.question)
+  const cleanQuestion = stripLatex(problem.question)
+
   const labels = ['A', 'B', 'C', 'D']
   const optionsText = problem.options.map((opt: string, i: number) => `${labels[i]}. ${opt}`).join('\n')
+
+  const displayText = latexBlocks.length > 0 ? `_${cleanQuestion}_` : problem.question
 
   const text = [
     `*#${problem.bank_id || problem.id}*  •  ${problem.difficulty.toUpperCase()}  •  ${session.currentIndex + 1}/${session.problems.length}`,
     '',
-    problem.question,
+    displayText,
     '',
     optionsText,
   ].join('\n')
@@ -90,6 +96,19 @@ export async function showProblem(ctx: Context, userId: number, lang: Lang) {
       lang
     ),
   })
+
+  if (latexBlocks.length > 0) {
+    const urls = latexBlocks.map(f => formulaUrl(f))
+    for (const url of urls) {
+      try {
+        await ctx.replyWithPhoto(Input.fromURL(url), {
+          reply_markup: { inline_keyboard: [] },
+        })
+      } catch {
+        // ignore render errors
+      }
+    }
+  }
 }
 
 export async function handleAnswer(ctx: Context, userId: number, problemId: number, optionIdx: number, lang: Lang) {
@@ -119,13 +138,18 @@ export async function handleAnswer(ctx: Context, userId: number, problemId: numb
     saveSolve(userId, problemId, isCorrect)
   } catch {}
 
+  const latexBlocks = extractLatex(problem.question)
+  const cleanQuestion = stripLatex(problem.question)
+
   const labels = ['A', 'B', 'C', 'D']
   const optionsText = problem.options.map((opt: string, i: number) => `${labels[i]}. ${opt}`).join('\n')
+
+  const displayQuestion = latexBlocks.length > 0 ? `_${cleanQuestion}_` : problem.question
 
   const text = [
     `*#${problem.bank_id || problem.id}*  •  ${problem.difficulty.toUpperCase()}`,
     '',
-    problem.question,
+    displayQuestion,
     '',
     optionsText,
     '',
@@ -148,6 +172,15 @@ export async function handleAnswer(ctx: Context, userId: number, problemId: numb
       lang
     ),
   })
+
+  if (latexBlocks.length > 0) {
+    const urls = latexBlocks.map(f => formulaUrl(f))
+    for (const url of urls) {
+      try {
+        await ctx.replyWithPhoto(Input.fromURL(url))
+      } catch {}
+    }
+  }
 }
 
 export async function showSolution(ctx: Context, problemId: number, lang: Lang) {
