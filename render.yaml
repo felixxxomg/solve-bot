@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: solve-bot
+    runtime: node
+    repo: https://github.com/felixxxomg/solve-bot
+    plan: free
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
