@@ -29,16 +29,6 @@ const bot = new Telegraf(token, {
   handlerTimeout: 30_000,
 })
 
-let ready = false
-
-bot.use(async (ctx, next) => {
-  if (!ready) {
-    await ctx.reply('⏳ Bot is starting up, please wait...')
-    return
-  }
-  return next()
-})
-
 bot.start(startHandler)
 bot.on('callback_query', callbackHandler)
 
@@ -47,7 +37,6 @@ async function main() {
   console.log('Database initialized')
 
   await bot.launch()
-  ready = true
   console.log('🤖 CSCA Solve Bot is running...')
 }
 
