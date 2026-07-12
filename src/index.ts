@@ -18,9 +18,9 @@ if (!token) { console.error('BOT_TOKEN missing'); process.exit(1) }
 // ─── Detect platform ──────────────────────────────────────────────
 const isRailway = !!process.env.RAILWAY_PUBLIC_DOMAIN || !!process.env.RAILWAY_URL
 const isRender = !!process.env.RENDER || !!process.env.RENDER_EXTERNAL_URL
-const PUBLIC_URL = process.env.WEBAPP_URL
+const PUBLIC_URL = (process.env.WEBAPP_URL
   || (isRender ? process.env.RENDER_EXTERNAL_URL : '')
-  || (isRailway ? `https://${(process.env.RAILWAY_PUBLIC_DOMAIN || process.env.RAILWAY_URL || '').replace(/^https?:\/\//, '')}` : '')
+  || (isRailway ? `https://${(process.env.RAILWAY_PUBLIC_DOMAIN || process.env.RAILWAY_URL || '').replace(/^https?:\/\//, '')}` : '')).replace(/\/+$/, '')
 
 // ─── Express ──────────────────────────────────────────────────────
 const app = express()
