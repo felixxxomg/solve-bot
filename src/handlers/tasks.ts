@@ -1,9 +1,8 @@
-import { Context } from 'telegraf'
-import { getProblems, getCategories, getSubjects, saveSolve } from '../api.js'
+import { Context, Input } from 'telegraf'
+import { getTopics, getTasksByTopic, saveSolve } from '../api.js'
 import { t } from '../i18n.js'
-import { problemKeyboard } from '../keyboards.js'
-import { Lang, Session } from '../types.js'
-import { extractLatex, stripLatex, questionToLatex, renderLatexImage } from '../utils/latex.js'
+import { taskKeyboard } from '../keyboards.js'
+import { Lang, Session, TaskItem } from '../types.js'
 
 const sessions = new Map<number, Session>()
 
@@ -19,11 +18,11 @@ export function clearSession(userId: number) {
   sessions.delete(userId)
 }
 
-export async function showSubjects(ctx: Context, lang: Lang) {
-  const subjects = getSubjects()
-  const buttons = Object.entries(subjects).map(([id, s]) => ({
-    text: s.name,
-    callback_data: `subject:${id}`,
+export async function showTopics(ctx: Context, lang: Lang) {
+  const topics = getTopics()
+  const buttons = topics.map(t => ({
+    text: `${t.name} (${t.count})`,
+    callback_data: `topic:${t.name}`,
   }))
   const rows: any[] = []
   for (let i = 0; i < buttons.length; i += 2) {
@@ -31,189 +30,90 @@ export async function showSubjects(ctx: Context, lang: Lang) {
   }
   rows.push([{ text: t(lang, 'backToMenu'), callback_data: 'menu:main' }])
 
-  await ctx.editMessageText(t(lang, 'chooseSubject'), {
-    reply_markup: { inline_keyboard: rows },
-  })
-}
-
-export async function showTopics(ctx: Context, subjectId: string, lang: Lang) {
-  const cats = getCategories(subjectId)
-  const buttons = cats.map((c: any) => ({
-    text: `${c.name} (${c.problem_count})`,
-    callback_data: `topic:${subjectId}:${c.id}`,
-  }))
-  const rows: any[] = []
-  for (let i = 0; i < buttons.length; i += 2) {
-    rows.push(buttons.slice(i, i + 2))
-  }
-  rows.push([{ text: t(lang, 'backToSubjects'), callback_data: 'subjects:back' }])
-
   await ctx.editMessageText(t(lang, 'chooseTopic'), {
     reply_markup: { inline_keyboard: rows },
   })
 }
 
-export async function showProblem(ctx: Context, userId: number, lang: Lang) {
+export async function showTask(ctx: Context, userId: number, lang: Lang) {
   const session = sessions.get(userId)
-  if (!session || session.problems.length === 0) {
+  if (!session || session.tasks.length === 0) {
     await ctx.editMessageText(t(lang, 'noProblems'), {
       reply_markup: { inline_keyboard: [[{ text: t(lang, 'backToTopics'), callback_data: 'topics:back' }]] },
     })
     return
   }
 
-  const problem = session.problems[session.currentIndex]
-  const answered = session.answers[problem.id] !== undefined
-  const hasPrev = session.currentIndex > 0
-  const hasNext = session.currentIndex < session.problems.length - 1
+  const task = session.tasks[session.currentIndex]
+  const answered = session.answers[task.id] !== undefined
+  const caption = `${t(lang, 'chooseAnswer')}\n\n${session.currentIndex + 1}/${session.tasks.length}`
 
-  const latexBlocks = extractLatex(problem.question)
-  const cleanQuestion = stripLatex(problem.question)
+  const { imagePath } = await import('../api.js')
+  const fp = imagePath(task.image)
 
-  const labels = ['A', 'B', 'C', 'D']
-  const optionsText = problem.options.map((opt: string, i: number) => `${labels[i]}. ${opt}`).join('\n')
-
-  const header = `#${problem.bank_id || problem.id}  •  ${problem.difficulty.toUpperCase()}  •  ${session.currentIndex + 1}/${session.problems.length}`
-
-  const displayText = latexBlocks.length > 0 ? cleanQuestion : problem.question
-
-  const captionText = [
-    displayText,
-    '',
-    optionsText,
-  ].join('\n')
-
-  if (latexBlocks.length > 0) {
-    const latexFull = questionToLatex(problem.question)
-    const imgUrl = await renderLatexImage(latexFull)
-
-    if (imgUrl) {
-      const body = [`*${header}*`, '', captionText].join('\n')
-      await ctx.editMessageText(body, {
-        parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: [] },
-      })
-      try {
-        await ctx.replyWithPhoto(imgUrl, {
-          caption: optionsText,
-          parse_mode: 'Markdown',
-          ...problemKeyboard(
-            problem.id, problem.options,
-            session.currentIndex, session.problems.length,
-            hasPrev, hasNext, answered, lang
-          ),
-        })
-      } catch {
-        await sendTextProblem(ctx, header, displayText, optionsText, problem, session, answered, hasPrev, hasNext, lang)
-      }
-    } else {
-      await sendTextProblem(ctx, header, displayText, optionsText, problem, session, answered, hasPrev, hasNext, lang)
-    }
-  } else {
-    await sendTextProblem(ctx, header, displayText, optionsText, problem, session, answered, hasPrev, hasNext, lang)
+  try {
+    const body = answered
+      ? getAnswerFeedback(task, session.answers[task.id], lang)
+      : caption
+    await ctx.replyWithPhoto(Input.fromLocalFile(fp), {
+      caption: body,
+      parse_mode: 'Markdown',
+      ...taskKeyboard(task.id, session.currentIndex, session.tasks.length, answered, lang),
+    })
+  } catch {
+    await ctx.reply('Error displaying task image.')
   }
 }
 
-async function sendTextProblem(
-  ctx: Context, header: string, questionText: string, optionsText: string,
-  problem: any, session: Session, answered: boolean,
-  hasPrev: boolean, hasNext: boolean, lang: Lang
-) {
-  const text = [
-    `*${header}*`,
-    '',
-    questionText,
-    '',
-    optionsText,
-  ].join('\n')
-  await ctx.editMessageText(text, {
-    parse_mode: 'Markdown',
-    ...problemKeyboard(
-      problem.id, problem.options,
-      session.currentIndex, session.problems.length,
-      hasPrev, hasNext, answered, lang
-    ),
-  })
-}
-
-export async function handleAnswer(ctx: Context, userId: number, problemId: number, optionIdx: number, lang: Lang) {
+export async function handleAnswer(ctx: Context, userId: number, taskId: string, optionIdx: number, lang: Lang) {
   const session = sessions.get(userId)
   if (!session) return
 
-  const problem = session.problems.find(p => p.id === problemId)
-  if (!problem) return
-  if (session.answers[problemId] !== undefined) return
+  if (session.answers[taskId] !== undefined) return
 
-  const correctIdx = problem.options.indexOf(problem.answer)
-  const isCorrect = optionIdx === correctIdx
-  session.answers[problemId] = optionIdx
+  const task = session.tasks.find(t => t.id === taskId)
+  if (!task) return
 
-  const correctLetter = String.fromCharCode(65 + correctIdx)
-
-  let feedback: string
-  if (isCorrect) {
-    feedback = `✅ *${t(lang, 'correctAnswer')}*`
-  } else {
-    feedback = `❌ *${t(lang, 'wrongAnswer')}* ${correctLetter}. ${problem.answer}`
-  }
+  const isCorrect = optionIdx === task.answer
+  session.answers[taskId] = optionIdx
 
   await ctx.answerCbQuery(isCorrect ? '✅' : '❌')
 
   try {
-    saveSolve(userId, problemId, isCorrect)
+    saveSolve(userId, taskId, isCorrect)
   } catch {}
 
-  const latexBlocks = extractLatex(problem.question)
-  const cleanQuestion = stripLatex(problem.question)
+  const { imagePath } = await import('../api.js')
+  const fp = imagePath(task.image)
+  const feedback = getAnswerFeedback(task, optionIdx, lang)
 
-  const labels = ['A', 'B', 'C', 'D']
-  const optionsText = problem.options.map((opt: string, i: number) => `${labels[i]}. ${opt}`).join('\n')
-
-  const displayQuestion = latexBlocks.length > 0 ? cleanQuestion : problem.question
-
-  const text = [
-    `*#${problem.bank_id || problem.id}*  •  ${problem.difficulty.toUpperCase()}`,
-    '',
-    displayQuestion,
-    '',
-    optionsText,
-    '',
-    feedback,
-  ].join('\n')
-
-  const hasPrev = session.currentIndex > 0
-  const hasNext = session.currentIndex < session.problems.length - 1
-
-  await ctx.editMessageText(text, {
-    parse_mode: 'Markdown',
-    ...problemKeyboard(
-      problem.id,
-      problem.options,
-      session.currentIndex,
-      session.problems.length,
-      hasPrev,
-      hasNext,
-      true,
-      lang
-    ),
-  })
+  try {
+    await ctx.replyWithPhoto(Input.fromLocalFile(fp), {
+      caption: feedback,
+      parse_mode: 'Markdown',
+      ...taskKeyboard(task.id, session.currentIndex, session.tasks.length, true, lang),
+    })
+  } catch {}
 }
 
-export async function showSolution(ctx: Context, problemId: number, lang: Lang) {
+export async function showSolution(ctx: Context, taskId: string, lang: Lang) {
   const session = sessions.get(ctx.from!.id)
   if (!session) return
 
-  const problem = session.problems.find(p => p.id === problemId)
-  if (!problem) return
+  const task = session.tasks.find(t => t.id === taskId)
+  if (!task) return
 
-  const solutionText = [
-    `*💡 ${t(lang, 'solution')}*`,
-    '',
-    ...problem.solution.map((s: string, i: number) => `${i + 1}. ${s}`),
-    '',
-    `*${t(lang, 'correct')}:* ${problem.answer}`,
-  ].join('\n')
-
+  const correctLetter = String.fromCharCode(65 + task.answer)
   await ctx.answerCbQuery('💡')
-  await ctx.reply(solutionText, { parse_mode: 'Markdown' })
+  await ctx.reply(`${t(lang, 'correct')}: ${correctLetter}`)
+}
+
+function getAnswerFeedback(task: TaskItem, chosenIdx: number, lang: Lang): string {
+  const correctLetter = String.fromCharCode(65 + task.answer)
+  const chosenLetter = String.fromCharCode(65 + chosenIdx)
+  const isCorrect = chosenIdx === task.answer
+  if (isCorrect) {
+    return `✅ ${t(lang, 'correctAnswer')}`
+  }
+  return `❌ ${t(lang, 'wrongAnswer')} ${correctLetter}`
 }

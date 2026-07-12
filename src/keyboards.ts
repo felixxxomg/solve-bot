@@ -10,17 +10,9 @@ export function mainMenuKeyboard(lang: Lang) {
   ])
 }
 
-export function statsKeyboard(lang: Lang) {
-  return Markup.inlineKeyboard([
-    [Markup.button.callback(t(lang, 'solveTasks'), 'menu:tasks')],
-    [Markup.button.callback(t(lang, 'mockTest'), 'menu:mocktest')],
-    [Markup.button.callback(t(lang, 'language'), 'menu:lang')],
-  ])
-}
-
-export function subjectsKeyboard(subjects: Record<string, { name: string }>, lang: Lang) {
-  const buttons = Object.entries(subjects).map(([id, s]) =>
-    Markup.button.callback(s.name, `subject:${id}`)
+export function topicsKeyboard(topics: { id: string; name: string; count: number }[], lang: Lang) {
+  const buttons = topics.map(t =>
+    Markup.button.callback(`${t.name} (${t.count})`, `topic:${t.name}`)
   )
   const rows: any[] = []
   for (let i = 0; i < buttons.length; i += 2) {
@@ -30,73 +22,48 @@ export function subjectsKeyboard(subjects: Record<string, { name: string }>, lan
   return Markup.inlineKeyboard(rows)
 }
 
-export function topicsKeyboard(topics: { id: number; name: string }[], subjectId: string, lang: Lang) {
-  const buttons = topics.map(t =>
-    Markup.button.callback(t.name, `topic:${subjectId}:${t.id}`)
-  )
-  const rows: any[] = []
-  for (let i = 0; i < buttons.length; i += 2) {
-    rows.push(buttons.slice(i, i + 2))
-  }
-  rows.push([Markup.button.callback(t(lang, 'backToSubjects'), 'subjects:back')])
-  return Markup.inlineKeyboard(rows)
-}
-
-export function problemKeyboard(
-  problemId: number,
-  options: string[],
+export function taskKeyboard(
+  taskId: string,
   currentIndex: number,
   total: number,
-  hasPrev: boolean,
-  hasNext: boolean,
   answered: boolean,
   lang: Lang
 ) {
   const rows: any[] = []
 
   const labels = ['A', 'B', 'C', 'D']
-  const optionButtons = options.map((opt, i) =>
-    Markup.button.callback(
-      `${labels[i]}`,
-      `answer:${problemId}:${i}`
-    )
+  const row1 = labels.slice(0, 2).map(l =>
+    Markup.button.callback(l, `answer:${taskId}:${labels.indexOf(l)}`)
   )
-  for (let i = 0; i < optionButtons.length; i += 2) {
-    rows.push(optionButtons.slice(i, i + 2))
-  }
+  const row2 = labels.slice(2, 4).map(l =>
+    Markup.button.callback(l, `answer:${taskId}:${labels.indexOf(l)}`)
+  )
+  rows.push(row1, row2)
 
   const navRow: any[] = []
-  if (hasPrev) {
-    navRow.push(Markup.button.callback(t(lang, 'prevProblem'), `nav:prev`))
+  if (currentIndex > 0) {
+    navRow.push(Markup.button.callback(t(lang, 'prevProblem'), 'nav:prev'))
   }
   navRow.push(Markup.button.callback(`${currentIndex + 1}/${total}`, 'nav:info'))
-  if (hasNext) {
-    navRow.push(Markup.button.callback(t(lang, 'nextProblem'), `nav:next`))
+  if (currentIndex < total - 1) {
+    navRow.push(Markup.button.callback(t(lang, 'nextProblem'), 'nav:next'))
   }
   rows.push(navRow)
-
-  if (answered) {
-    rows.push([Markup.button.callback(t(lang, 'solution'), `solution:${problemId}`)])
-  }
 
   rows.push([Markup.button.callback(t(lang, 'backToTopics'), 'topics:back')])
 
   return Markup.inlineKeyboard(rows)
 }
 
-export function mockTestKeyboard(problemId: number, options: string[], lang: Lang) {
-  const rows: any[] = []
+export function mockKeyboard(taskId: string, lang: Lang) {
   const labels = ['A', 'B', 'C', 'D']
-  const optionButtons = options.map((opt, i) =>
-    Markup.button.callback(
-      `${labels[i]}`,
-      `mockanswer:${problemId}:${i}`
-    )
+  const row1 = labels.slice(0, 2).map(l =>
+    Markup.button.callback(l, `mockanswer:${taskId}:${labels.indexOf(l)}`)
   )
-  for (let i = 0; i < optionButtons.length; i += 2) {
-    rows.push(optionButtons.slice(i, i + 2))
-  }
-  return Markup.inlineKeyboard(rows)
+  const row2 = labels.slice(2, 4).map(l =>
+    Markup.button.callback(l, `mockanswer:${taskId}:${labels.indexOf(l)}`)
+  )
+  return Markup.inlineKeyboard([row1, row2])
 }
 
 export function langKeyboard() {

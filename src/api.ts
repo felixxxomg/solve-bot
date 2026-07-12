@@ -1,22 +1,82 @@
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { getDB, saveDB } from './db.js'
-import { Problem, Category, UserStats, UserProfile } from './types.js'
+import { UserStats, UserProfile } from './types.js'
 
-function rowToProblem(row: any): Problem {
-  return {
-    id: row.id,
-    bank_id: row.bank_id ?? null,
-    subject_id: row.subject_id,
-    topic_id: row.topic_id,
-    topic_name: row.topic_name || '',
-    difficulty: row.difficulty,
-    question: row.question,
-    options: typeof row.options === 'string' ? JSON.parse(row.options) : row.options,
-    answer: row.answer,
-    solution: typeof row.solution === 'string' ? JSON.parse(row.solution) : row.solution,
-    source_type: row.source_type || '',
-    source_name: row.source_name || '',
-  }
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+interface TaskData {
+  image: string
+  answer: number
+  difficulty: string
+  topic: string
 }
+
+interface TaskWithId extends TaskData {
+  id: string
+}
+
+let tasksCache: TaskWithId[] | null = null
+
+function loadTasks(): TaskWithId[] {
+  if (tasksCache) return tasksCache
+  const p = path.join(__dirname, '..', 'data', 'tasks.json')
+  if (!fs.existsSync(p)) {
+    tasksCache = []
+    return tasksCache
+  }
+  const raw = fs.readFileSync(p, 'utf-8')
+  const data: TaskData[] = JSON.parse(raw)
+  tasksCache = data.map((t, i) => ({ ...t, id: `task_${String(i + 1).padStart(3, '0')}` }))
+  return tasksCache
+}
+
+export function reloadTasks() {
+  tasksCache = null
+  loadTasks()
+}
+
+export function imagePath(imageName: string): string {
+  return path.join(__dirname, '..', 'images', imageName)
+}
+
+export function getTopics(): { id: string; name: string; count: number }[] {
+  const tasks = loadTasks()
+  const map = new Map<string, number>()
+  for (const t of tasks) {
+    map.set(t.topic, (map.get(t.topic) || 0) + 1)
+  }
+  return Array.from(map.entries()).map(([name, count], i) => ({
+    id: `topic_${i}`,
+    name,
+    count,
+  }))
+}
+
+export function getTasksByTopic(topicName: string): TaskWithId[] {
+  return loadTasks().filter(t => t.topic === topicName)
+}
+
+export function getRandomTasks(count: number, topicName?: string): TaskWithId[] {
+  let pool = topicName ? getTasksByTopic(topicName) : loadTasks()
+  const shuffled = [...pool].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, Math.min(count, shuffled.length))
+}
+
+export function getTaskAnswer(taskId: string): number | null {
+  const tasks = loadTasks()
+  const task = tasks.find(t => t.id === taskId)
+  return task ? task.answer : null
+}
+
+export function getTaskDifficulty(taskId: string): string {
+  const tasks = loadTasks()
+  const task = tasks.find(t => t.id === taskId)
+  return task?.difficulty || 'medium'
+}
+
+// ── User / Auth ──
 
 export function authTelegram(telegramId: string, name: string): UserProfile {
   const db = getDB()
@@ -40,75 +100,7 @@ export function updateLanguage(telegramId: string, language: string): void {
   saveDB()
 }
 
-export function getSubjects(): Record<string, { name: string }> {
-  const db = getDB()
-  const rows = db.exec('SELECT * FROM subjects ORDER BY display_order')
-  const subjects: Record<string, { name: string }> = {}
-  if (rows.length > 0) {
-    for (const row of rows[0].values) {
-      subjects[row[0]] = { name: row[1] }
-    }
-  }
-  return subjects
-}
-
-export function getCategories(subjectId: string): Category[] {
-  const db = getDB()
-  const rows = db.exec(`
-    SELECT t.id, t.name, COUNT(p.id) as problem_count
-    FROM topics t LEFT JOIN problems p ON p.topic_id = t.id AND p.subject_id = ?
-    WHERE t.subject_id = ?
-    GROUP BY t.id ORDER BY t.display_order, t.name
-  `, [subjectId, subjectId])
-  const cats: Category[] = []
-  if (rows.length) {
-    for (const row of rows[0].values) {
-      cats.push({ id: row[0], name: row[1], problem_count: row[2] })
-    }
-  }
-  return cats
-}
-
-export function getProblems(subject: string, topicId?: number, sort?: string): Problem[] {
-  const db = getDB()
-  let sql = 'SELECT p.*, t.name AS topic_name FROM problems p LEFT JOIN topics t ON p.topic_id = t.id WHERE p.subject_id = ?'
-  const params: any[] = [subject]
-
-  if (topicId) {
-    sql += ' AND p.topic_id = ?'
-    params.push(topicId)
-  }
-
-  if (sort === 'oldest') sql += ' ORDER BY p.id ASC'
-  else if (sort === 'easiest') sql += " ORDER BY CASE p.difficulty WHEN 'easy' THEN 1 WHEN 'medium' THEN 2 WHEN 'hard' THEN 3 END"
-  else if (sort === 'hardest') sql += " ORDER BY CASE p.difficulty WHEN 'hard' THEN 1 WHEN 'medium' THEN 2 WHEN 'easy' THEN 3 END"
-  else sql += ' ORDER BY p.id DESC'
-
-  const stmt = db.prepare(sql)
-  stmt.bind(params)
-  const problems: Problem[] = []
-  while (stmt.step()) {
-    problems.push(rowToProblem(stmt.getAsObject()))
-  }
-  stmt.free()
-  return problems
-}
-
-export function getRandomProblems(subject: string, count: number): Problem[] {
-  const db = getDB()
-  const n = Math.min(Math.max(count, 1), 50)
-  const sql = 'SELECT p.*, t.name AS topic_name FROM problems p LEFT JOIN topics t ON p.topic_id = t.id WHERE p.subject_id = ? ORDER BY RANDOM() LIMIT ?'
-  const stmt = db.prepare(sql)
-  stmt.bind([subject, n])
-  const problems: Problem[] = []
-  while (stmt.step()) {
-    problems.push(rowToProblem(stmt.getAsObject()))
-  }
-  stmt.free()
-  return problems
-}
-
-export function saveSolve(userId: number, problemId: number, isCorrect: boolean): void {
+export function saveSolve(userId: number, problemId: string, isCorrect: boolean): void {
   const db = getDB()
   db.run("INSERT INTO solves (user_id, problem_id, is_correct) VALUES (?, ?, ?)", [userId, problemId, isCorrect ? 1 : 0])
   saveDB()
@@ -126,11 +118,5 @@ export function getStats(userId: number): UserStats {
   const totalTests = testData.length ? testData[0].values[0][0] : 0
   const totalTestCorrect = testData.length ? testData[0].values[0][1] : 0
 
-  return {
-    totalSolved: ts,
-    totalCorrect: tc,
-    accuracy,
-    totalTests,
-    avgScore: totalTests > 0 ? Math.round(totalTestCorrect / totalTests) : 0,
-  }
+  return { totalSolved: ts, totalCorrect: tc, accuracy, totalTests, avgScore: totalTests > 0 ? Math.round(totalTestCorrect / totalTests) : 0 }
 }

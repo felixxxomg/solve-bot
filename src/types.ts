@@ -1,26 +1,10 @@
-export type Difficulty = 'easy' | 'medium' | 'hard'
-
 export type Lang = 'en' | 'ru'
 
-export interface Problem {
-  id: number
-  bank_id: number | null
-  subject_id: string
-  topic_id: number
-  topic_name?: string
-  difficulty: Difficulty
-  question: string
-  options: string[]
-  answer: string
-  solution: string[]
-  source_type: string
-  source_name: string
-}
-
-export interface Category {
+export interface UserProfile {
   id: number
   name: string
-  problem_count: number
+  telegram_id: string
+  language: Lang
 }
 
 export interface UserStats {
@@ -31,17 +15,18 @@ export interface UserStats {
   avgScore: number
 }
 
-export interface UserProfile {
-  id: number
-  name: string
-  telegram_id: string
-  language: Lang
-}
-
 export interface Session {
-  problems: Problem[]
+  tasks: TaskItem[]
   currentIndex: number
-  answers: Record<number, number>
+  answers: Record<string, number>
   type: 'browse' | 'mocktest'
   startedAt?: number
+}
+
+export interface TaskItem {
+  id: string
+  image: string
+  answer: number
+  difficulty: string
+  topic: string
 }

@@ -1,0 +1,14 @@
+[
+  {
+    "image": "task_001.png",
+    "answer": 0,
+    "difficulty": "medium",
+    "topic": "Sets & Inequalities"
+  },
+  {
+    "image": "task_002.png",
+    "answer": 2,
+    "difficulty": "easy",
+    "topic": "Logarithms"
+  }
+]
