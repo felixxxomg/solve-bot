@@ -1,0 +1,158 @@
+[
+  {
+    "id": 1,
+    "topic": "Mathematics",
+    "difficulty": "medium",
+    "question": "Solve for $x$: $$\\frac{2x + 3}{x - 1} = 4$$",
+    "options": [
+      "$x = \\frac{7}{2}$",
+      "$x = \\frac{5}{2}$",
+      "$x = \\frac{3}{2}$",
+      "$x = \\frac{9}{2}$"
+    ],
+    "answer": 0
+  },
+  {
+    "id": 2,
+    "topic": "Algebra",
+    "difficulty": "easy",
+    "question": "Simplify: $(x^2 + 2x + 1) - (x^2 - 2x + 1)$",
+    "options": [
+      "$0$",
+      "$4x$",
+      "$2x$",
+      "$x^2 + 4x$"
+    ],
+    "answer": 1
+  },
+  {
+    "id": 3,
+    "topic": "Geometry",
+    "difficulty": "hard",
+    "question": "In triangle $ABC$, $\\angle A = 60^\\circ$, $\\angle B = 45^\\circ$, and side $a = 10$. Find side $b$.",
+    "options": [
+      "$b = \\frac{10\\sqrt{6}}{3}$",
+      "$b = \\frac{10\\sqrt{3}}{3}$",
+      "$b = 5\\sqrt{6}$",
+      "$b = \\frac{20\\sqrt{3}}{3}$"
+    ],
+    "answer": 0
+  },
+  {
+    "id": 4,
+    "topic": "Mathematics",
+    "difficulty": "medium",
+    "question": "What is the sum of the roots of the quadratic equation $x^2 - 5x + 6 = 0$?",
+    "options": [
+      "$3$",
+      "$-5$",
+      "$5$",
+      "$-3$"
+    ],
+    "answer": 2
+  },
+  {
+    "id": 5,
+    "topic": "Trigonometry",
+    "difficulty": "hard",
+    "question": "Simplify: $$\\frac{\\sin^2 x}{1 - \\cos x}$$",
+    "options": [
+      "$1 - \\cos x$",
+      "$1 + \\cos x$",
+      "$\\sin x$",
+      "$\\tan x$"
+    ],
+    "answer": 1
+  },
+  {
+    "id": 6,
+    "topic": "Algebra",
+    "difficulty": "easy",
+    "question": "What is the value of $\\log_2 32$?",
+    "options": [
+      "$4$",
+      "$5$",
+      "$6$",
+      "$16$"
+    ],
+    "answer": 1
+  },
+  {
+    "id": 7,
+    "topic": "Geometry",
+    "difficulty": "medium",
+    "question": "What is the area of a circle with radius $r = 3$?",
+    "options": [
+      "$6\\pi$",
+      "$9\\pi$",
+      "$3\\pi$",
+      "$12\\pi$"
+    ],
+    "answer": 1
+  },
+  {
+    "id": 8,
+    "topic": "Trigonometry",
+    "difficulty": "medium",
+    "question": "What is $\\sin(\\frac{\\pi}{3})$?",
+    "options": [
+      "$\\frac{1}{2}$",
+      "$\\frac{\\sqrt{2}}{2}$",
+      "$\\frac{\\sqrt{3}}{2}$",
+      "$1$"
+    ],
+    "answer": 2
+  },
+  {
+    "id": 9,
+    "topic": "Mathematics",
+    "difficulty": "hard",
+    "question": "If $f(x) = x^3 - 3x + 1$, what is $f'(2)$?",
+    "options": [
+      "$9$",
+      "$10$",
+      "$11$",
+      "$12$"
+    ],
+    "answer": 0
+  },
+  {
+    "id": 10,
+    "topic": "Algebra",
+    "difficulty": "medium",
+    "question": "Solve the system: $$\\begin{cases} x + y = 7 \\\\ 2x - y = 2 \\end{cases}$$",
+    "options": [
+      "$x = 3, y = 4$",
+      "$x = 4, y = 3$",
+      "$x = 2, y = 5$",
+      "$x = 5, y = 2$"
+    ],
+    "answer": 0
+  },
+  {
+    "id": 11,
+    "topic": "Geometry",
+    "difficulty": "easy",
+    "question": "What is the volume of a cube with side length $s = 4$?",
+    "options": [
+      "$16$",
+      "$64$",
+      "$24$",
+      "$12$"
+    ],
+    "answer": 1
+  },
+  {
+    "id": 12,
+    "topic": "Trigonometry",
+    "difficulty": "hard",
+    "question": "Find all solutions to $\\cos x = \\frac{1}{2}$ in $[0, 2\\pi)$.",
+    "options": [
+      "$x = \\frac{\\pi}{3}, \\frac{5\\pi}{3}$",
+      "$x = \\frac{\\pi}{3}, \\frac{2\\pi}{3}$",
+      "$x = \\frac{\\pi}{3}, \\frac{4\\pi}{3}$",
+      "$x = \\frac{\\pi}{6}, \\frac{11\\pi}{6}$"
+    ],
+    "answer": 0
+  }
+]

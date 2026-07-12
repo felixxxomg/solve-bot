@@ -11,22 +11,31 @@ export interface UserStats {
   totalSolved: number
   totalCorrect: number
   accuracy: number
-  totalTests: number
+  totalTasks: number
   avgScore: number
+  byTopic: { topic: string; solved: number; correct: number }[]
+  weekActivity: { day: string; solved: number }[]
+  lastTests: { id: number; correct: number; total: number; completed_at: string }[]
+}
+
+export interface Problem {
+  id: number
+  topic: string
+  difficulty: 'easy' | 'medium' | 'hard'
+  question: string
+  options: string[]
+  answer: number
+}
+
+export interface Category {
+  name: string
+  count: number
 }
 
 export interface Session {
-  tasks: TaskItem[]
+  problems: Problem[]
   currentIndex: number
-  answers: Record<string, number>
+  answers: Record<number, number>
   type: 'browse' | 'mocktest'
   startedAt?: number
-}
-
-export interface TaskItem {
-  id: string
-  image: string
-  answer: number
-  difficulty: string
-  topic: string
 }
